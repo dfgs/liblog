@@ -19,9 +19,7 @@ typedef struct
 
 
 
-log* log_init(const char* fileName,int signalID);
-void log_free(log* log);
-void log_open(log* log);
+log* log_open(const char* fileName,int signalID);
 void log_close(log* log);
 
 void log_write(log* log,const char *format, ...);

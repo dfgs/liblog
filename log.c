@@ -5,8 +5,35 @@
 #include <signal.h>
 #include <pthread.h>
 #include <errno.h>
+#include <stdarg.h>
 
-log* logDictionary[128]; 
+log* logDictionary[128] = {0}; 
+
+
+static void log_newFile(log* log)
+{
+    int result;
+ 
+	if (log->file!=NULL) 
+	{
+		fclose(log->file);
+		log->file=NULL;
+	}
+	
+	log->file = fopen(log->fileName, "a");
+	if (log->file == NULL)
+	{
+		perror("Failed to create log file");
+	}
+	else
+	{
+		result=setvbuf(log->file, NULL, _IOLBF, 0);
+		if (result!=0)
+		{
+			perror("Failed to set log file buffer");
+		}
+	}
+}
 
 static void sig_handler(int signo)
 {
@@ -15,13 +42,15 @@ static void sig_handler(int signo)
 	log=logDictionary[signo];
 	if (log==NULL) return;
 	
-	//log_write(log,  __func__,"NA",DEBUG,"Received signal %i",signo);
 	pthread_mutex_lock(&log->mutex);
-	log_close(log);
-	log_open(log);
+	log_newFile(log);
 	pthread_mutex_unlock(&log->mutex);
 	
 }
+
+
+
+
 
 static void nowToString(char* Buffer)
 {
@@ -33,19 +62,8 @@ static void nowToString(char* Buffer)
 	strftime(Buffer, 128, "%m/%d/%Y %T",tmp);
 }
 
-static log* log_createLog()
-{
-    log* logFile;
 
-    logFile=malloc(sizeof(log));
-
-    return logFile;
-}
-
-
-
-
-log* log_init(const char* fileName,int signalID)
+log* log_open(const char* fileName,int signalID)
 {
 	log* logFile;
 
@@ -62,40 +80,34 @@ log* log_init(const char* fileName,int signalID)
 	}
 	
 	
-    logFile=log_createLog();
+    logFile=malloc(sizeof(log));
 	logDictionary[signalID]=logFile;
 	
 	
 	logFile->signal=signalID;
 	logFile->fileName=fileName;
+	log_newFile(logFile);
 	
-	logFile->file = fopen(fileName, "w");
-    if (logFile->file==NULL)
-    {
-        perror("Cannot open log file");
-		log_free(logFile);
-        return NULL;
-    }
 	
 	if (pthread_mutex_init(&logFile->mutex,NULL)!=0)
 	{
         perror("Cannot initialize mutex");
-		log_free(logFile);
+		log_close(logFile);
         return NULL;
 	}
 
  	if (signal(signalID, sig_handler) == SIG_ERR)
 	{
 		perror("Failed to register signal");
-		log_free(logFile);
-		exit(EXIT_FAILURE);
+		log_close(logFile);
+		return NULL;
 	}
 	
 	
-
+	return logFile;
 }
 
-void log_free(log* log)
+void log_close(log* log)
 {
 	logDictionary[log->signal]=NULL;
 	if (log->file!=NULL) fclose(log->file);
@@ -104,26 +116,7 @@ void log_free(log* log)
     free(log);
 }
 
-void log_open(log* log)
-{
-    int result;
- 
-	log->file = fopen(log->fileName, "a");
-	if (log->file == NULL)
-	{
-		perror("Failed to create log file");
-	}
- 	result=setvbuf(log->file, NULL, _IOLBF, 0);
-    if (result!=0)
-    {
- 		perror("Failed to set log file buffer");
-	}
-}
-void log_close(log* log)
-{
-	fclose(log->file);
-    //renameLog();
-}
+
 
 
 void log_write(log* log,const char *format, ...)
@@ -131,6 +124,8 @@ void log_write(log* log,const char *format, ...)
 	char buffer[128];
 	va_list ap;
 
+	if (log->file==NULL) return;
+	
 	pthread_mutex_lock(&log->mutex);
 	
 	nowToString(buffer);
