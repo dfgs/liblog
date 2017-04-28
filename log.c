@@ -10,7 +10,7 @@
 log* logDictionary[128] = {0}; 
 
 
-static void log_newFile(log* log)
+static int log_newFile(log* log)
 {
     int result;
  
@@ -24,6 +24,7 @@ static void log_newFile(log* log)
 	if (log->file == NULL)
 	{
 		perror("Failed to create log file");
+		return -1;
 	}
 	else
 	{
@@ -31,8 +32,10 @@ static void log_newFile(log* log)
 		if (result!=0)
 		{
 			perror("Failed to set log file buffer");
+		return -1;
 		}
 	}
+	return 0;
 }
 
 static void sig_handler(int signo)
@@ -69,26 +72,28 @@ log* log_open(const char* fileName,int signalID)
 
 	if (signalID>=128)
 	{
-        perror("Invalid signal ID");
+        fprintf(stderr,"Invalid signal ID");
 		return NULL;
 	}
 	
 	if (logDictionary[signalID]!=NULL)
 	{
-		perror("Signal ID already registered");
+		fprintf(stderr,"Signal ID already registered");
 		return NULL;
 	}
-	
-	
+		
     logFile=malloc(sizeof(log));
 	logDictionary[signalID]=logFile;
-	
-	
+		
 	logFile->signal=signalID;
 	logFile->fileName=fileName;
-	log_newFile(logFile);
-	
-	
+	logFile->file=NULL;
+	if (log_newFile(logFile)!=0)
+	{
+		log_close(logFile);
+		return NULL;
+	}
+		
 	if (pthread_mutex_init(&logFile->mutex,NULL)!=0)
 	{
         perror("Cannot initialize mutex");
@@ -102,8 +107,7 @@ log* log_open(const char* fileName,int signalID)
 		log_close(logFile);
 		return NULL;
 	}
-	
-	
+		
 	return logFile;
 }
 
