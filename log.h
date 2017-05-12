@@ -15,11 +15,12 @@ typedef struct
     FILE* file;
     pthread_mutex_t mutex;
     int signal;
+	int renameFile;
 } log;
 
 
 
-log* log_open(const char* fileName,int signalID);
+log* log_open(const char* fileName,int signalID,int renameFile);
 void log_close(log* log);
 
 void log_write(log* log,const char *format, ...);

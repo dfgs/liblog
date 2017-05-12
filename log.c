@@ -1,4 +1,5 @@
 #include "log.h"
+#include <stringutil.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -10,14 +11,28 @@
 log* logDictionary[128] = {0}; 
 
 
+
+
 static int log_newFile(log* log)
 {
     int result;
- 
+	char* newFileName;
+	int insertPos;
+	char* now;
+	
 	if (log->file!=NULL) 
 	{
 		fclose(log->file);
 		log->file=NULL;
+		if (log->renameFile!=0)
+		{
+			insertPos=lstrPos(log->fileName,'.');
+			now=nowToFormattedString("%Y%m%d%M%H%S",15);
+			newFileName=insert(log->fileName,now,insertPos);
+			rename(log->fileName,newFileName);		
+			free(now);
+			free(newFileName);			
+		}
 	}
 	
 	log->file = fopen(log->fileName, "a");
@@ -55,18 +70,9 @@ static void sig_handler(int signo)
 
 
 
-static void nowToString(char* Buffer)
-{
-	time_t now;
-	struct tm *tmp;
-	
-	now=time(NULL);
-	tmp = localtime(&now);
-	strftime(Buffer, 128, "%m/%d/%Y %T",tmp);
-}
 
 
-log* log_open(const char* fileName,int signalID)
+log* log_open(const char* fileName,int signalID,int renameFile)
 {
 	log* logFile;
 
@@ -86,6 +92,7 @@ log* log_open(const char* fileName,int signalID)
 	logDictionary[signalID]=logFile;
 		
 	logFile->signal=signalID;
+	logFile->renameFile=renameFile;
 	logFile->fileName=fileName;
 	logFile->file=NULL;
 	if (log_newFile(logFile)!=0)
@@ -125,16 +132,17 @@ void log_close(log* log)
 
 void log_write(log* log,const char *format, ...)
 {
-	char buffer[128];
+	char* now;
 	va_list ap;
 
 	if (log->file==NULL) return;
 	
 	pthread_mutex_lock(&log->mutex);
 	
-	nowToString(buffer);
-	fprintf(log->file,"%s|",buffer);
-
+	now=nowToString();
+	fprintf(log->file,"%s|",now);
+	free(now);
+	
 	va_start(ap, format);
 	vfprintf(log->file, format, ap);
 	va_end(ap);
