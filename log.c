@@ -1,5 +1,4 @@
 #include "log.h"
-#include <utils.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -8,17 +7,39 @@
 #include <errno.h>
 #include <stdarg.h>
 
-log* logDictionary[128] = {0}; 
+LogFile* logDictionary[128] = {0}; 
+
+static int nowToString(char* buffer,int size)
+{
+	time_t now;
+	struct tm *tmp;
+	//05/12/2017 07:10:14
+	
+	memset(buffer,0,size);
+	now=time(NULL);
+	tmp = localtime(&now);
+	return strftime(buffer, size, "%m/%d/%Y %T",tmp);
+}
 
 
+static int nowToFormattedString(char* buffer,int size,const char* format)
+{
+	time_t now;
+	struct tm *tmp;
+	//05/12/2017 07:10:14
+	
+	memset(buffer,0,size);
+	now=time(NULL);
+	tmp = localtime(&now);
+	return strftime(buffer, size, format,tmp);
+}
 
 
-static int log_newFile(log* log)
+static int log_newFile(LogFile* log)
 {
     int result;
-	char* newFileName;
-	int insertPos;
-	char* now;
+	char newFileName[1024];
+	char now[20];
 	
 	if (log->file!=NULL) 
 	{
@@ -26,12 +47,11 @@ static int log_newFile(log* log)
 		log->file=NULL;
 		if (log->renameFile!=0)
 		{
-			insertPos=lstrPos(log->fileName,'.');
-			now=nowToFormattedString("%Y%m%d%M%H%S",15);
-			newFileName=insert(log->fileName,now,insertPos);
+			nowToFormattedString(now,20,"%Y%m%d%M%H%S");
+			strcpy(newFileName,log->fileName);
+			strcat(newFileName,"-");
+			strcat(newFileName,now);
 			rename(log->fileName,newFileName);		
-			free(now);
-			free(newFileName);			
 		}
 	}
 	
@@ -55,7 +75,7 @@ static int log_newFile(log* log)
 
 static void sig_handler(int signo)
 {
-	log* log;
+	LogFile* log;
 	
 	log=logDictionary[signo];
 	if (log==NULL) return;
@@ -72,9 +92,9 @@ static void sig_handler(int signo)
 
 
 
-log* log_open(const char* fileName,int signalID,int renameFile)
+LogFile* log_open(const char* fileName,int signalID,int renameFile)
 {
-	log* logFile;
+	LogFile* logFile;
 
 	if (signalID>=128)
 	{
@@ -88,7 +108,7 @@ log* log_open(const char* fileName,int signalID,int renameFile)
 		return NULL;
 	}
 		
-    logFile=malloc(sizeof(log));
+    logFile=malloc(sizeof(LogFile));
 	logDictionary[signalID]=logFile;
 		
 	logFile->signal=signalID;
@@ -118,7 +138,7 @@ log* log_open(const char* fileName,int signalID,int renameFile)
 	return logFile;
 }
 
-void log_close(log* log)
+void log_close(LogFile* log)
 {
 	logDictionary[log->signal]=NULL;
 	if (log->file!=NULL) fclose(log->file);
@@ -130,18 +150,17 @@ void log_close(log* log)
 
 
 
-void log_write(log* log,const char *format, ...)
+void log_write(LogFile* log,const char *format, ...)
 {
-	char* now;
+	char now[128];
 	va_list ap;
 
 	if (log->file==NULL) return;
 	
 	pthread_mutex_lock(&log->mutex);
 	
-	now=nowToString();
+	nowToString(now,128);
 	fprintf(log->file,"%s|",now);
-	free(now);
 	
 	va_start(ap, format);
 	vfprintf(log->file, format, ap);
