@@ -16,14 +16,14 @@ typedef struct
     pthread_mutex_t mutex;
     int signal;
 	int renameFile;
-} log;
+} LogFile;
 
 
 
-log* log_open(const char* fileName,int signalID,int renameFile);
-void log_close(log* log);
+LogFile* log_open(const char* fileName,int signalID,int renameFile);
+void log_close(LogFile* log);
 
-void log_write(log* log,const char *format, ...);
+void log_write(LogFile* log,const char *format, ...);
 
 #ifdef __cplusplus
 }

@@ -1,9 +1,5 @@
 AC_INIT([liblog], [1.0], [dfgs83@gmail.com])
 
-AC_CHECK_LIB(utils,nowToString, ,[AC_MSG_ERROR([Couldn't find libutils...] )])
-AC_CHECK_HEADER(utils.h,, [AC_MSG_ERROR([Couldn't find utils.h...] )])
-
-
 AM_INIT_AUTOMAKE([foreign])
 #AM_PROG_AR
 AC_PROG_CC
