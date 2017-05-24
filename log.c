@@ -45,14 +45,6 @@ static int log_newFile(LogFile* log)
 	{
 		fclose(log->file);
 		log->file=NULL;
-		if (log->renameFile!=0)
-		{
-			nowToFormattedString(now,20,"%Y%m%d%M%H%S");
-			strcpy(newFileName,log->fileName);
-			strcat(newFileName,"-");
-			strcat(newFileName,now);
-			rename(log->fileName,newFileName);		
-		}
 	}
 	
 	log->file = fopen(log->fileName, "a");
@@ -92,7 +84,7 @@ static void sig_handler(int signo)
 
 
 
-LogFile* log_open(const char* fileName,int signalID,int renameFile)
+LogFile* log_open(const char* fileName,int signalID)
 {
 	LogFile* logFile;
 
@@ -112,7 +104,6 @@ LogFile* log_open(const char* fileName,int signalID,int renameFile)
 	logDictionary[signalID]=logFile;
 		
 	logFile->signal=signalID;
-	logFile->renameFile=renameFile;
 	logFile->fileName=fileName;
 	logFile->file=NULL;
 	if (log_newFile(logFile)!=0)
